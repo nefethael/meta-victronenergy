@@ -30,7 +30,10 @@ python __anonymous() {
 
 addtask unpack before do_rootfs
 
-SRC_URI = "file://swupdate"
+SRC_URI = "\
+	file://install.sh \
+	file://swupdate \
+"
 
 remove_locale_data_files() {
 	printf "Post processing local %s\n" ${IMAGE_ROOTFS}${libdir}/locale
@@ -38,6 +41,9 @@ remove_locale_data_files() {
 }
 
 add_program_instructions() {
+	install -d ${IMAGE_ROOTFS}/${base_libdir}/venus
+	install ${WORKDIR}/install.sh ${IMAGE_ROOTFS}/${base_libdir}/venus
+
 	if [ "${SWUPDATE_INIT}" = "tiny" ]; then
 		install ${WORKDIR}/swupdate ${IMAGE_ROOTFS}/${base_sbindir}/init
 	else
