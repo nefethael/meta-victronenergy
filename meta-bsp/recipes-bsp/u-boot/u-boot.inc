@@ -1,46 +1,26 @@
-DESCRIPTION = "U-Boot - the Universal Boot Loader"
-HOMEPAGE = "http://www.denx.de/wiki/U-Boot/WebHome"
-SECTION = "bootloaders"
+require ${COREBASE}/meta/recipes-bsp/u-boot/u-boot.inc
 
-PROVIDES = "virtual/bootloader"
-DEPENDS = "mtd-utils"
+DEPENDS += "u-boot-mkimage-native"
 
-PACKAGE_ARCH = "${MACHINE_ARCH}"
-# gcc 4.9.2 has a BUG cause false array out bound warnings.. (which is in fido)
-EXTRA_OEMAKE = 'CROSS_COMPILE=${TARGET_PREFIX} CC="${TARGET_PREFIX}gcc ${TOOLCHAIN_OPTIONS} -Wno-error=array-bounds"'
-UBOOT_MACHINE ?= "${MACHINE}_config"
-UBOOT_IMAGE ?= "u-boot.img"
-UBOOT_MAKE_TARGET ?= "all"
+UBOOT_LOCALVERSION = "-venus"
 
-do_configure () {
-	oe_runmake ${UBOOT_MACHINE}
+SRC_URI += "file://install.cmds"
+
+UBOOT_SCRIPTS = "install:install-${MACHINE}"
+
+do_compile_append () {
+	for scr in ${UBOOT_SCRIPTS}; do
+		src=${scr%:*}
+		dst=${scr#*:}
+		mkimage -A arm -T script -C none \
+			-d ${WORKDIR}/${src}.cmds ${WORKDIR}/${dst}.scr
+	done
 }
 
-do_compile () {
-	unset LDFLAGS
-	unset CFLAGS
-	unset CPPFLAGS
-	oe_runmake ${UBOOT_MAKE_TARGET}
-}
-
-do_install () {
-	install -d ${D}/boot
-	install ${S}/${UBOOT_IMAGE} ${D}/boot/${MACHINE}-${UBOOT_IMAGE}
-}
-
-inherit deploy
-
-addtask deploy before do_package after do_compile
-
-do_deploy () {
+do_deploy_append () {
 	install -d ${DEPLOYDIR}
-	install ${S}/${UBOOT_IMAGE} ${DEPLOYDIR}/${UBOOT_IMAGE}
-	if [ -e ${S}/MLO ] ; then
-		install ${S}/MLO ${DEPLOYDIR}/MLO
-	fi
+	for scr in ${UBOOT_SCRIPTS}; do
+		dst=${scr#*:}
+		install -m 0644 ${WORKDIR}/${dst}.scr ${DEPLOYDIR}
+	done
 }
-
-FILES_${PN} = "/boot ${sysconfdir}"
-# no gnu_hash in uboot.bin, by design, so skip QA
-INSANE_SKIP_${PN} = "1"
-
